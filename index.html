@@ -239,7 +239,7 @@
                     <div id="loading" class="mt-8 hidden">
                         <div class="flex flex-col items-center gap-3">
                             <div class="w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin"></div>
-                            <p class="text-slate-500 text-sm">正在下载分片并解析…</p>
+                            <p class="text-slate-500 text-sm">正在下载分片（约 470KB，仅该分片首次）…</p>
                         </div>
                     </div>
 
@@ -488,6 +488,22 @@
                 if (e.key === 'Enter') queryPiDigit();
             });
         });
+
+        // 预取①：边输入边后台加载目标分片，点查询时大概率已就绪
+        const posEl = document.getElementById('position');
+        let prefetchTimer = null;
+        posEl.addEventListener('input', () => {
+            clearTimeout(prefetchTimer);
+            prefetchTimer = setTimeout(() => {
+                const p = parseInt(posEl.value);
+                if (p >= 1 && p <= MAX_POS) {
+                    loadChunk(Math.ceil(p / CHUNK_SIZE)).catch(() => {});
+                }
+            }, 250);
+        });
+
+        // 预取②：页面打开 2 秒后预热第 1 分片（最常被尝试的位置）
+        setTimeout(() => loadChunk(1).catch(() => {}), 2000);
 
         // 导航栏滚动效果
         window.addEventListener('scroll', () => {
