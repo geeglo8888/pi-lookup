@@ -4,7 +4,7 @@
 
 **纯前端 · 零后端 · 数据即页面**
 
-在线访问：[pai.516526.xyz](https://pai.516526.xyz/)
+在线访问：[pai.suois.com](https://pai.suois.com/)
 
 ## 功能
 
@@ -48,26 +48,36 @@ pi-lookup/
 
 数据文件本身就是公开 API，无需注册、无需 key、没有配额：
 
-### 单字符 / 短区间（HTTP Range）
-
-```bash
-# 取小数点后第 31415926 位开始的 10 位
-curl -r 415925-415934 https://pai.516526.xyz/data/pi_32.txt
-```
+### 程序化查询（整片下载 + 本地切片）
 
 ```python
-import requests
+import urllib.request
+from functools import lru_cache
 
 CHUNK = 1_000_000
+BASE = "https://pai.suois.com/data"
+
+@lru_cache(maxsize=None)          # 同一分片只下载一次
+def get_chunk(i):
+    return urllib.request.urlopen(f"{BASE}/pi_{i}.txt").read().decode()
 
 def pi_digit(position, count=1):
-    i = (position + CHUNK - 1) // CHUNK
-    off = (position - 1) % CHUNK
-    url = f"https://pai.516526.xyz/data/pi_{i}.txt"
-    return requests.get(url, headers={"Range": f"bytes={off}-{off+count-2}"}).text
+    end = position + count - 1
+    out, cursor = "", position
+    while cursor <= end:
+        i = (cursor + CHUNK - 1) // CHUNK
+        txt = get_chunk(i)
+        start = (i - 1) * CHUNK
+        out += txt[cursor - start - 1 : min(end, i * CHUNK) - start]
+        cursor = i * CHUNK + 1
+    return out
+
+print(pi_digit(5, 10))            # → 9265358979
 ```
 
-> 若托管平台不支持 Range（返回 200 全量），退化为整片下载后本地切片即可。
+> **关于 HTTP Range**：部分托管平台（GitHub raw、Vercel 等）支持 `Range: bytes=offset`
+> 只取需要的几十字节；但 **Cloudflare Pages 实测不支持**（返回 200 全量）。
+> 好在每片仅 1MB（gzip 后约 250KB），整片下载 + 内存缓存已足够轻量。
 
 ### 全文搜索（如：20080808 是否出现在前 1 亿位）
 
@@ -77,7 +87,7 @@ def pi_digit(position, count=1):
 import urllib.request
 from functools import lru_cache
 
-BASE = "https://pai.516526.xyz/data"
+BASE = "https://pai.suois.com/data"
 
 @lru_cache(maxsize=None)
 def get_chunk(i):
